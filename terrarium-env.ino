@@ -14,7 +14,7 @@ int sensorValue = 0;
 int speedPotValue = 0;
 char c;
 int fanSpeed = 0;
-float lastCelsius = 0.0f;
+int lastCelsius = 0;
 
 void setup(void)
 {
@@ -26,7 +26,8 @@ void setup(void)
   TCCR1B = (TCCR1B & mask) | 5;
   pinMode(fanSpeedMonitor,INPUT_PULLUP);
   pinMode(fadePin,OUTPUT);
-  
+
+  //Activate fans by setting them to max speed just so they turn.
   analogWrite(fadePin,255);
   
 }
@@ -41,6 +42,7 @@ void loop(void)
   byte addr[8];
   float celsius;
 
+  //Fan speed is PWM
   actualFanSpeed = pulseIn(fanSpeedMonitor, HIGH);
   
   if ( !ds.search(addr)) {
@@ -99,29 +101,34 @@ void loop(void)
     else if (cfg == 0x20) raw = raw << 2; // 10 bit res, 187.5 ms
     else if (cfg == 0x40) raw = raw << 1; // 11 bit res, 375 ms
   }
-  celsius = (float)raw / 17.0;
+  
+  celsius = (float)raw / 16.0;
   Serial.println(celsius);
 
-//Compensate for anomalous readings by ignoring anything greater than 100
-
-    //normalTemp = ((celsius-19)/(25-19));
   lastCelsius = celsius;
   speedPotValue = constrain(analogRead(speedControl),0,1023);
 
-  if (speedPotValue >= 1023)
+  if (speedPotValue >= 1010)
   {
     Serial.println("Auto speed");
+    //Compensate for anomalous readings by ignoring anything greater than 100
     if (celsius <= 100)
     {
-      if (celsius >= 17 && celsius < 25)
+      //Temperature check and fan speed should actually be dependent on time of day
+      //night = 19degC
+      //day = 25degC
+      if (celsius >= 18 && celsius < 25)
       {
-        fanSpeed = map(celsius,17,25, 70,255);
+        //Map doesn't work, it just sticks at 162
+        //fanSpeed = map(celsius,17,25, 70,255);
+        Serial.println("celsius >= 18 && celsius < 25");
+        fanSpeed = 0;
       }
       else if (celsius >= 25)
       {
         fanSpeed = 255;
       }
-      else if (celsius < 17)
+      else if (celsius < 18)
       {
         fanSpeed = 0;
       }
@@ -132,18 +139,20 @@ void loop(void)
       }
     }
   }
-  else if (speedPotValue <= 0)
+  else if (speedPotValue <= 10)
   {
     //turn off fan due to potentiometer
     Serial.print("Manual TurnOff : ");
     Serial.println(speedPotValue);
     fanSpeed = 0;
   }  
-  else if (speedPotValue > 0 && speedPotValue < 1023)
+  else if (speedPotValue > 10 && speedPotValue < 1010)
   {
     Serial.println("Manual Speed");
     //we set the fan speed depending on potentiometer
-	fanSpeed = map(speedControl,1,1022, 70,255);
+	  //map doesn't work, it sticks at 73
+	  //fanSpeed = map(speedControl,1,1022, 0,255);
+    //fanSpeed = constrain(fanSpeed,70,255);
   }
   
   analogWrite(fadePin,fanSpeed);
