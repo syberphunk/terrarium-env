@@ -14,7 +14,6 @@ int sensorValue = 0;
 int speedPotValue = 0;
 char c;
 int fanSpeed = 0;
-int lastCelsius = 0;
 
 void setup(void)
 {
@@ -105,7 +104,6 @@ void loop(void)
   celsius = (float)raw / 16.0;
   Serial.println(celsius);
 
-  lastCelsius = celsius;
   speedPotValue = constrain(analogRead(speedControl),0,1023);
 
   if (speedPotValue >= 1010)
@@ -117,14 +115,14 @@ void loop(void)
       //Temperature check and fan speed should actually be dependent on time of day
       //night = 19degC
       //day = 25degC
-      if (celsius >= 18 && celsius < 25)
+      if (celsius >= 18 && celsius <= 24)
       {
         //Map doesn't work, it just sticks at 162
         //fanSpeed = map(celsius,17,25, 70,255);
         Serial.println("celsius >= 18 && celsius < 25");
         fanSpeed = 0;
       }
-      else if (celsius >= 25)
+      else if (celsius > 24)
       {
         fanSpeed = 255;
       }
@@ -134,8 +132,8 @@ void loop(void)
       }
       else
       {
-        Serial.println("Reading temperature broke");
-        fanSpeed = map(lastCelsius,17,25, 70,1023);
+        Serial.println("Reading temperature broke"); //, setting to min temp");
+        //fanSpeed = map(lastCelsius,17,25, 70,1023);
       }
     }
   }
