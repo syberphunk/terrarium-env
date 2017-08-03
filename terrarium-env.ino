@@ -1,10 +1,10 @@
 #include <OneWire.h>
 #include <Wire.h>
 
-OneWire ds(8);
 const int fadePin = 9;
 const int fanSpeedMonitor = 15;
 const int speedControl = A3;
+const int tempSensor = 8;
 const byte mask = B11111000; // mask bits that are not prescale values
 
 unsigned int actualFanSpeed = 0;
@@ -14,13 +14,14 @@ int sensorValue = 0;
 int speedPotValue = 0;
 char c;
 int fanSpeed = 0;
+OneWire ds(tempSensor);
 
 void setup(void)
 {
 
   Wire.begin();
   
-  Serial.begin(115200);
+  Serial.begin(57600);
   //change pwm frequency so it doesn't buzz
   TCCR1B = (TCCR1B & mask) | 5;
   pinMode(fanSpeedMonitor,INPUT_PULLUP);
@@ -28,14 +29,13 @@ void setup(void)
 
   //Activate fans by setting them to max speed just so they turn.
   analogWrite(fadePin,255);
-  
+    Serial.println("setup done");
 }
 
 
 void loop(void)
 {
   byte i;
-  byte present = 0;
   byte type_s;
   byte data[12];
   byte addr[8];
@@ -80,7 +80,7 @@ void loop(void)
   
   ds.depower();   // we might do a ds.depower() here, but the reset will take care of it.
   
-  present = ds.reset();
+  ds.reset();
   ds.select(addr);    
   ds.write(0xBE);         // Read Scratchpad
 
@@ -113,8 +113,8 @@ void loop(void)
     if (celsius <= 100)
     {
       //Temperature check and fan speed should actually be dependent on time of day
-      //night = 19degC
-      //day = 25degC
+      //night = 19degC max/min
+      //day = 25degC max, 19degC min
       if (celsius >= 18 && celsius <= 24)
       {
         //Map doesn't work, it just sticks at 162
