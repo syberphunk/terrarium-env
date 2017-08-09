@@ -1,6 +1,8 @@
 #include <OneWire.h>
 #include <Wire.h>
+#include <dht.h>
 
+const int dampSensor = A0;
 const int fadePin = 9;
 const int fanSpeedMonitor = 15;
 const int speedControl = A3;
@@ -15,13 +17,14 @@ int speedPotValue = 0;
 char c;
 int fanSpeed = 0;
 OneWire ds(tempSensor);
+dht DHT;
 
 void setup(void)
 {
 
   Wire.begin();
   
-  Serial.begin(57600);
+  Serial.begin(115200);
   //change pwm frequency so it doesn't buzz
   TCCR1B = (TCCR1B & mask) | 5;
   pinMode(fanSpeedMonitor,INPUT_PULLUP);
@@ -40,6 +43,9 @@ void loop(void)
   byte data[12];
   byte addr[8];
   float celsius;
+
+  //read humidity
+  DHT.read11(dampSensor);
 
   //Fan speed is PWM
   actualFanSpeed = pulseIn(fanSpeedMonitor, HIGH);
@@ -100,10 +106,12 @@ void loop(void)
     else if (cfg == 0x20) raw = raw << 2; // 10 bit res, 187.5 ms
     else if (cfg == 0x40) raw = raw << 1; // 11 bit res, 375 ms
   }
-  
+
+  //calibration correction divider
   celsius = (float)raw / 16.0;
   Serial.println(celsius);
 
+  //mostly ignoring the potentiometer value atm because it's poor quality
   speedPotValue = constrain(analogRead(speedControl),0,1023);
 
   if (speedPotValue >= 1010)
@@ -152,7 +160,8 @@ void loop(void)
 	  //fanSpeed = map(speedControl,1,1022, 0,255);
     //fanSpeed = constrain(fanSpeed,70,255);
   }
-  
+
+  //debug output, could do with an LCD screen
   analogWrite(fadePin,fanSpeed);
   Serial.print("fanSpeed : ");
   Serial.println(fanSpeed);
@@ -160,5 +169,9 @@ void loop(void)
   Serial.println(actualFanSpeed);
   Serial.print("Pot value: ");
   Serial.println(speedPotValue);
-  
+  Serial.print("DHT11 Temperature = ");
+  Serial.println(DHT.temperature);
+  Serial.print("DHT11 humidity = ");
+  Serial.print(DHT.humidity);
+  Serial.println("%");  
 }
