@@ -2,6 +2,11 @@
 #include <Wire.h>
 #include <dht.h>
 
+//should really avoid using these for connection reasons
+//16,14,15 are SPI
+//2,3 are i2c
+
+const int mistViv = 16;
 const int dampSensor = A0;
 const int fadePin = 9;
 const int fanSpeedMonitor = 15;
@@ -29,6 +34,7 @@ void setup(void)
   TCCR1B = (TCCR1B & mask) | 5;
   pinMode(fanSpeedMonitor,INPUT_PULLUP);
   pinMode(fadePin,OUTPUT);
+  pinMode(mistViv,OUTPUT);
 
   //Activate fans by setting them to max speed just so they turn.
   analogWrite(fadePin,255);
@@ -109,25 +115,26 @@ void loop(void)
 
   //calibration correction divider
   celsius = (float)raw / 16.0;
-  Serial.println(celsius);
+
 
   //mostly ignoring the potentiometer value atm because it's poor quality
   speedPotValue = constrain(analogRead(speedControl),0,1023);
 
   if (speedPotValue >= 1010)
   {
-    Serial.println("Auto speed");
+    //Serial.println("Auto speed");
     //Compensate for anomalous readings by ignoring anything greater than 100
     if (celsius <= 100)
     {
-      //Temperature check and fan speed should actually be dependent on time of day
+      //Temperature check and fan speed should actually be dependent on time of day and humidity
       //night = 19degC max/min
       //day = 25degC max, 19degC min
+      //humidity > 50% and < 80%
       if (celsius >= 18 && celsius <= 24)
       {
         //Map doesn't work, it just sticks at 162
         //fanSpeed = map(celsius,17,25, 70,255);
-        Serial.println("celsius >= 18 && celsius < 25");
+        //Serial.println("celsius >= 18 && celsius < 25");
         fanSpeed = 0;
       }
       else if (celsius > 24)
@@ -140,7 +147,7 @@ void loop(void)
       }
       else
       {
-        Serial.println("Reading temperature broke"); //, setting to min temp");
+        Serial.println("Reading temperature broke"); 
         //fanSpeed = map(lastCelsius,17,25, 70,1023);
       }
     }
@@ -160,9 +167,31 @@ void loop(void)
 	  //fanSpeed = map(speedControl,1,1022, 0,255);
     //fanSpeed = constrain(fanSpeed,70,255);
   }
+  if (DHT.humidity < 40)
+  {
+    digitalWrite(mistViv, HIGH);
+    delay(1000); //we don't want to flood the tank, and it takes a while for the sensor to update
+    digitalWrite(mistViv, LOW);
+    DHT.read11(dampSensor); 
+  }
+  else if (DHT.humidity > 79)
+  {
+    //if humidity is high and temperature is low, thermostat should kick in to compensate
+    fanSpeed = 255;
+    analogWrite(fadePin,fanSpeed);
+    while(DHT.humidity > 70)
+    {
+      //make sure the vivarium is drying out, high temperature might be increasing humidity
+      DHT.read11(dampSensor);
+    }
+    analogWrite(fadePin,0);
+  }
 
-  //debug output, could do with an LCD screen
   analogWrite(fadePin,fanSpeed);
+  DHT.read11(dampSensor);
+  //debug output, could do with an LCD screen
+  Serial.print("DS18B20 temp: ");
+  Serial.println(celsius);
   Serial.print("fanSpeed : ");
   Serial.println(fanSpeed);
   Serial.print("actualFanSpeed: ");
